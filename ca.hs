@@ -1,33 +1,30 @@
 import Data.Bits
-import Data.Map
+import Data.Map (fromList, (!))
+import System.Environment (getArgs)
 
 bitty :: Int -> Int -> [Int]
-bitty width n = [ min 1 (n .&. x) | x <- (take width (Prelude.map (2^) [0..]))]
+bitty width n = [min 1 (n .&. x) | x <- (take width (map (2^) [0..]))]
 
 rule = 110
 
-ruleBitmap = bitty 8 rule
+ruleLookup = let ruleBitmap  = bitty 8 rule
+                 ruleMatches = map (bitty 3) [0..7]
+             in
+                 fromList (zip ruleMatches ruleBitmap)
 
-ruleLookup = fromList (zip (Prelude.map (bitty 3) [0..7]) (bitty 8 37))
+evolveOne (x, y, z) = ruleLookup ! [x, y, z]
 
-toRuleIndex previous3 = Prelude.foldr (+) 0 (zipWith (*) previous3 (take 3 (Prelude.map (2^) [0..])))
-toRuleIndexT (x, y, z) = toRuleIndex [z, y, x]
+evolve row = let extendedRow = [0, 0] ++ row ++ [0, 0]
+                 slidingWindowTuples = (zip3 (drop 0 extendedRow)
+                                             (drop 1 extendedRow)
+                                             (drop 2 extendedRow))
+             in map evolveOne slidingWindowTuples
 
-evolveStep triple = ruleBitmap !! (toRuleIndexT triple)
+stringify width s = let blankOffset = (take ((width - (length s)) `div` 2) (repeat ' '))
+                        prettyState = (map (\x -> if x == 0 then ' ' else '.') s)
+                    in
+                        blankOffset ++ prettyState
 
-evolve row = let state = [0, 0] ++ row ++ [0, 0]
-             in Prelude.map evolveStep
-                    (zip3 state
-                          (drop 1 state)
-                          (drop 2 state))
-
-stringify :: Int -> [Int] -> [Char]
-stringify width s = (take ((width - (length s)) `div` 2) (repeat ' ')) ++ (Prelude.map (\x -> if x == 0 then ' ' else '.') s)
-
-go 0 _ _ = putStr ""
-go n width s = let next = evolve s
-         in do
-              putStrLn (stringify width next)
-              go (n - 1) width next
-
+go 0 width s = putStrLn (stringify width s)
+go n width s = putStrLn (stringify width s) >> go (n - 1) width (evolve s)
 
